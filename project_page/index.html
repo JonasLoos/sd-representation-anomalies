@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Latent Diffusion U-Net Representations Contain Positional Embeddings and Anomalies</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="intro">
+    <h1 style="text-align: center;">Latent Diffusion U-Net Representations Contain Positional Embeddings and Anomalies</h1>
+    <div class="authors">
+      <a href="https://scholar.google.de/citations?user=ebVN7tkAAAAJ" class="author">Jonas Loos</a>
+      <a href="https://scholar.google.de/citations?user=579iMjgAAAAJ" class="author">Lorenz Linhardt</a>
+    </div>
+    <div class="affiliation">
+      <a href="https://web.ml.tu-berlin.de/">ML Group @ TU Berlin</a>
+    </div>
+    <div class="venue">
+      <a href="https://iclr.cc/virtual/2025/workshop/23972">ICLR 2025 - DeLTa Workshop</a>
+    </div>
+    <div class="description">
+      Diffusion models have demonstrated remarkable capabilities in synthesizing realistic images, spurring interest in using their representations for various downstream tasks. To better understand the robustness of these representations, we analyze popular Stable Diffusion models using representational similarity and norms. Our findings reveal three phenomena: (1) the presence of a learned positional embedding in intermediate representations, (2) high-similarity corner artifacts, and (3) anomalous high-norm artifacts. These findings underscore the need to further investigate the properties of diffusion model representations before considering them for downstream tasks that require robust features.
+    </div>
+    <div class="paper-links">
+      <a href="https://openreview.net/forum?id=BCFNrZcqEL">[Paper]</a>
+      <a href="https://github.com/JonasLoos/sd-representation-anomalies">[GitHub]</a>
+    </div>
+    <div id="qualitative-results">
+      <div class="select-container">
+        <div class="select-group select-group-image">
+          <span>Image (click to add)</span>
+          <div id="image-to-use"></div>
+        </div>
+        <div class="select-group">
+          <span>
+            Model
+            <button class="info-button" data-info="Select which Stable Diffusion model to analyze. Different models may exhibit the phenomena to varying degrees.">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            </button>
+          </span>
+          <select id="model-to-use"></select>
+        </div>
+        <div class="select-group">
+          <span>
+            U-Net Block
+            <button class="info-button" data-info="Select which block of the U-Net architecture to analyze. Higher blocks (e.g. down0, down1, up2, up3) tend to contain more low-level information, while lower blocks (e.g. down2, down3, mid, up0, up1) tend contain more high-level information.">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            </button>
+          </span>
+          <select id="position-to-use"></select>
+        </div>
+        <div class="select-group">
+          <span>
+            Similarity measure
+            <button class="info-button" data-info="Select how similarity between representations is calculated. Cosine similarity is a common and solid choice for many tasks.">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            </button>
+          </span>
+          <select id="similarity-measure">
+            <option value="cosine">Cosine</option>
+            <option value="cosine_centered">Cosine (centered)</option>
+            <!-- <option value="soft_cosine">Soft Cosine</option> -->
+            <option value="dot-product">Dot Product</option>
+            <option value="manhattan">Manhattan (L1)</option>
+            <option value="euclidean">Euclidean (L2)</option>
+            <option value="chebyshev">Chebyshev (L∞)</option>
+            <option value="rel-l2-norm">Relative L2 Norm</option>
+          </select>
+        </div>
+        <div id="select-presets">
+          <span>Apply example settings to visualize:</span>
+          <div id="preset-buttons">
+            <button id="preset-positional" title="Show positional embedding effect in lower blocks of the U-Net">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>
+              Positional Embedding
+            </button>
+            <button id="preset-corner" title="Show corner artifacts with high cosine similarities">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,4 4,10 10,10 10,4"></polyline><polyline points="14,4 14,10 20,10 20,4"></polyline><polyline points="4,14 4,20 10,20 10,14"></polyline><polyline points="14,14 14,20 20,20 20,14"></polyline></svg>
+              Corner Artifacts
+            </button>
+            <button id="preset-norm" title="Show high-norm anomalies in up-sampling blocks">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+              High-norm Anomalies
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="canvas-container"></div>
+      <p id="missing-image-text">No image selected. Please select an image from the list above.</p>
+      <p id="model-description"></p>
+      <p id="similarity-usage-help">All displayed similarities are relative to the currently hovered, or last clicked, tile.</p>
+      <div id="qualitative-results-description">
+        <p>Our qualitative analysis reveals three key phenomena in Stable Diffusion U-Net representations:</p>
+        <ol>
+          <li><strong>Positional Embeddings:</strong> Representations contain a learned positional embedding, where tokens at similar spatial locations show higher similarities, even across images with different content. This effect is most prominent in the lower blocks of the U-Net.</li>
+          <li><strong>Corner Artifacts:</strong> Tokens located at borders and especially corners often exhibit unusually high cosine similarities to each other, independent of the image content.</li>
+          <li><strong>High-Norm Anomalies:</strong> Groups of neighboring tokens with abnormally high norm and high mutual similarity appear in various layers, particularly at the end of the up1 block. There, these anomalies typically consist of 2×2 token patches.</li>
+        </ol>
+        <p>These phenomena may interfere with the use of diffusion model representations for downstream tasks that require robust features with high spatial fidelity, such as semantic correspondence or dense prediction tasks.</p>
+      </div>
+    </div>
+  </div>
+  <div id="quantitative-results">
+    <h2>Quantitative Results</h2>
+    <div id="quantitative-results-container">
+      <div class="model-selector">
+        <button class="model-btn active" data-model="sd15">SD-1.5</button>
+        <button class="model-btn" data-model="sd21">SD-2.1</button>
+        <button class="model-btn" data-model="sdturbo">SD-Turbo</button>
+      </div>
+      <div id="quantitative-results-images">
+        <img src="assets/results-quantitative-sd15.svg" alt="Quantitative Results for SD-1.5" class="active" data-model="sd15">
+        <img src="assets/results-quantitative-sd21.svg" alt="Quantitative Results for SD-2.1" data-model="sd21">
+        <img src="assets/results-quantitative-sdturbo.svg" alt="Quantitative Results for SD-Turbo" data-model="sdturbo">
+      </div>
+      <p>Our quantitative analysis confirms the three key phenomena observed in Stable Diffusion U-Net representations. The graphs above show results for three different models (SD-1.5, SD-2.1, and SD-Turbo). The <span style="color: #980C13;">top row</span> demonstrates the accuracy of a linear probe in predicting token positions, confirming that positional information is linearly extractable from representations, especially in lower blocks. The <span style="color: #1F77B4;">middle row</span> shows the increased similarity between corner tokens relative to non-corner tokens (log-2 scale), revealing corner artifacts across multiple layers. The <span style="color: #26A259;">bottom row</span> displays the relative norm of anomalous tokens compared to the mean norm of all tokens (log-2 scale), highlighting the presence of high-norm anomalies particularly in up-sampling blocks. These findings are consistent across all evaluated models, suggesting these phenomena are inherent to the U-Net architecture used in Stable Diffusion models.</p>
+    </div>
+  </div>
+  <div id="bibtex">
+    <h2>BibTeX</h2>
+    <div class="bibtex-container">
+      <button id="copy-bibtex" title="Copy to clipboard" style="display: none;"></button>
+      <pre id="bibtex-content">
+@inproceedings{loos2025latent,
+  title={Latent Diffusion U-Net Representations Contain Positional Embeddings and Anomalies},
+  author={Jonas Loos and Lorenz Linhardt},
+  booktitle={ICLR 2025 Workshop on Deep Generative Model in Machine Learning: Theory, Principle and Efficacy},
+  year={2025},
+  url={https://openreview.net/forum?id=BCFNrZcqEL}
+}</pre>
+    </div>
+  </div>
+  <script src="script.js"></script>
+  <script>
+document.addEventListener('DOMContentLoaded', function() {
+
+  // Setup model selector for quantitative results
+  const modelButtons = document.querySelectorAll('.model-btn');
+  modelButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      // Remove active class from all buttons
+      modelButtons.forEach(btn => btn.classList.remove('active'));
+      // Add active class to clicked button
+      button.classList.add('active');
+      
+      // Hide all images
+      const images = document.querySelectorAll('#quantitative-results-images img');
+      images.forEach(img => img.classList.remove('active'));
+      
+      // Show the selected image
+      const modelId = button.getAttribute('data-model');
+      const selectedImage = document.querySelector(`#quantitative-results-images img[data-model="${modelId}"]`);
+      if (selectedImage) {
+        selectedImage.classList.add('active');
+      }
+    });
+  });
+  
+  // Setup BibTeX copy button
+  const copyBibtexButton = document.getElementById('copy-bibtex');
+  const bibtexContent = document.getElementById('bibtex-content');
+  copyBibtexButton.style.display = 'block';
+  const resetBibtexButton = () => {
+    copyBibtexButton.classList.remove('copied');
+    copyBibtexButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy';
+  }
+  resetBibtexButton();
+
+  // Copy BibTeX button functionality
+  copyBibtexButton.addEventListener('click', () => {
+    navigator.clipboard.writeText(bibtexContent.textContent.trim())
+      .then(() => {
+        // Visual feedback for successful copy
+        copyBibtexButton.classList.add('copied');
+        copyBibtexButton.textContent = 'Copied!';
+        setTimeout(resetBibtexButton, 2000);
+      })
+      .catch(err => {
+        console.error('Failed to copy text: ', err);
+        copyBibtexButton.textContent = 'Failed to copy';
+        setTimeout(resetBibtexButton, 2000);
+      });
+  });
+});
+  </script>
+</body>
+</html>

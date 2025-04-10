@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Labeler</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        #image-container {
+            position: relative;
+            display: inline-block;
+            width: 1024px;
+            height: 1024px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .label {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: red;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        #image-name {
+            margin-top: 10px;
+            font-size: 18px;
+        }
+        #current-image {
+            max-width: 1024px;
+            max-height: 1024px;
+            width: auto;
+            height: auto;
+            image-rendering: pixelated;
+        }
+        #navigation {
+            margin-top: 10px;
+        }
+        #navigation button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="image-container">
+        <img id="current-image" src="" alt="Image to label">
+    </div>
+    <div id="image-name"></div>
+    <div id="navigation">
+        <button id="prev-button">Previous</button>
+        <button id="next-button">Next</button>
+    </div>
+
+    <script>
+        let currentImage = '';
+        let labels = [];
+        let allImages = [];
+        let currentIndex = 0;
+
+        function loadImages() {
+            Promise.all([
+                fetch('/api/images').then(response => response.json()),
+                fetch('/api/unlabeled').then(response => response.json())
+            ]).then(([images, unlabeled]) => {
+                allImages = images.sort();
+                // TODO: unlabeled
+                updateImage();
+            });
+        }
+
+        function updateImage(delta=0) {
+            currentIndex += delta;
+            if (currentIndex < 0) {
+                currentIndex = allImages.length - 1;
+            } else if (currentIndex >= allImages.length) {
+                currentIndex = 0;
+            }
+            currentImage = allImages[currentIndex];
+            const img = document.getElementById('current-image');
+            img.src = `/images/${currentImage}`;
+            
+            // Set size to make larger dimension 1024px
+            img.onload = () => {
+                const aspectRatio = img.naturalWidth / img.naturalHeight;
+                if (aspectRatio > 1) {
+                    // Image is wider than tall
+                    img.style.width = '1024px';
+                    img.style.height = `${1024 / aspectRatio}px`;
+                } else {
+                    // Image is taller than wide
+                    img.style.height = '1024px';
+                    img.style.width = `${1024 * aspectRatio}px`;
+                }
+                document.getElementById('image-name').textContent = 
+                    `(${currentIndex + 1}/${allImages.length}) ${currentImage} [${img.naturalWidth}x${img.naturalHeight}]`;
+                loadLabels();
+            };
+        }
+
+        function loadLabels() {
+            fetch(`/api/labels/${currentImage}`)
+                .then(response => response.json())
+                .then(data => {
+                    labels = data;
+                    renderLabels();
+                });
+        }
+
+        function renderLabels() {
+            const container = document.getElementById('image-container');
+            container.querySelectorAll('.label').forEach(el => el.remove());
+            
+            const img = document.getElementById('current-image');
+            const naturalWidth = img.naturalWidth;
+            const naturalHeight = img.naturalHeight;
+            const displayWidth = img.width;
+            const displayHeight = img.height;
+
+            const scaleX = displayWidth / naturalWidth;
+            const scaleY = displayHeight / naturalHeight;
+
+            labels.forEach((label, index) => {
+                const dot = document.createElement('div');
+                dot.className = 'label';
+                const scaledX = label.x * scaleX;
+                const scaledY = label.y * scaleY;
+
+                // Position relative to the actual image position
+                const imgRect = img.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                const offsetX = (containerRect.width - imgRect.width) / 2 + scaleX/2;
+                const offsetY = (containerRect.height - imgRect.height) / 2 + scaleY/2;
+
+                dot.style.left = `${offsetX + scaledX - 5}px`;
+                dot.style.top = `${offsetY + scaledY - 5}px`;
+                // dot.onclick = () => removeLabel(index);
+                container.appendChild(dot);
+            });
+        }
+
+        function addLabel(event) {
+            const img = event.target;
+            const rect = img.getBoundingClientRect();
+            const naturalWidth = img.naturalWidth;
+            const naturalHeight = img.naturalHeight;
+            
+            // Calculate the relative position within the actual image
+            let x = Math.floor((event.clientX - rect.left) * (naturalWidth / rect.width));
+            let y = Math.floor((event.clientY - rect.top) * (naturalHeight / rect.height));
+
+            // anomalies have to be upper left of 2x2 grid
+            x = Math.floor(x / 2) * 2;
+            y = Math.floor(y / 2) * 2;
+
+            // if label already exists, remove it
+            const existingIndex = labels.findIndex(label => label.x === x && label.y === y);
+            if (existingIndex !== -1) {
+                removeLabel(existingIndex);
+                return;
+            }
+
+            labels.push({x, y});
+            saveLabels();
+            renderLabels();
+        }
+
+        function removeLabel(index) {
+            labels.splice(index, 1);
+            saveLabels();
+            renderLabels();
+        }
+
+        function saveLabels() {
+            fetch(`/api/labels/${currentImage}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(labels),
+            });
+        }
+
+        document.getElementById('current-image').addEventListener('click', addLabel);
+        document.getElementById('current-image').addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            updateImage(1);
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                updateImage(-1);
+            } else if (e.key === 'ArrowRight') {
+                updateImage(1);
+            }
+        });
+
+        document.getElementById('prev-button').addEventListener('click', () => updateImage(-1));
+        document.getElementById('next-button').addEventListener('click', () => updateImage(1));
+
+        loadImages();
+    </script>
+</body>
+</html>
